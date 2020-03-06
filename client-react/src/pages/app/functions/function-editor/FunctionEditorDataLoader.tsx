@@ -274,32 +274,37 @@ const FunctionEditorDataLoader: React.FC<FunctionEditorDataLoaderProps> = props 
     setFunctionRunning(true);
     const updatedFunctionInfo = await functionEditorData.updateFunctionInfo(resourceId, newFunctionInfo);
     if (updatedFunctionInfo.metadata.success) {
-      const data = updatedFunctionInfo.data;
-      setFunctionInfo(data);
-      if (!!site) {
-        let url = `${Url.getMainUrl(site)}${createAndGetFunctionInvokeUrlPath()}`;
-        let parsedTestData = {};
-        try {
-          parsedTestData = JSON.parse(newFunctionInfo.properties.test_data);
-        } catch (err) {
-          // TODO (krmitta): Log an error if parsing the data throws an error
-        }
-        const testDataObject = functionEditorData.getProcessedFunctionTestData(parsedTestData);
-        const queryString = getQueryString(testDataObject.queries);
-        if (!!queryString) {
-          url = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
-        }
+      setFunctionInfo(updatedFunctionInfo.data);
+    } else {
+      LogService.error(
+        LogCategories.FunctionEdit,
+        'updateFunctionInfo',
+        `Unable to update function Info: ${updatedFunctionInfo.metadata.error}`
+      );
+    }
+    if (!!site) {
+      let url = `${Url.getMainUrl(site)}${createAndGetFunctionInvokeUrlPath()}`;
+      let parsedTestData = {};
+      try {
+        parsedTestData = JSON.parse(newFunctionInfo.properties.test_data);
+      } catch (err) {
+        LogService.error(LogCategories.FunctionEdit, 'parseTestData', `Unable to parse test data for the function: ${functionInfo}`);
+      }
+      const testDataObject = functionEditorData.getProcessedFunctionTestData(parsedTestData);
+      const queryString = getQueryString(testDataObject.queries);
+      if (!!queryString) {
+        url = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
+      }
 
-        const headers = getHeaders(testDataObject.headers);
-        try {
-          const res = await FunctionsService.runFunction(url, testDataObject.method as Method, headers, testDataObject.body);
-          setResponseContent({
-            code: res.metadata.status,
-            text: res.metadata.success ? res.data : res.metadata.error,
-          });
-        } catch (err) {
-          // TODO (krmitta): Show an error if the call to run the function fails
-        }
+      const headers = getHeaders(testDataObject.headers);
+      try {
+        const res = await FunctionsService.runFunction(url, testDataObject.method as Method, headers, testDataObject.body);
+        setResponseContent({
+          code: res.metadata.status,
+          text: res.metadata.success ? res.data : res.metadata.error,
+        });
+      } catch (err) {
+        // TODO (krmitta): Show an error if the call to run the function fails
       }
     }
     setFunctionRunning(false);
